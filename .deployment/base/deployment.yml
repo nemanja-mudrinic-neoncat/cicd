@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neoncat-hello
+  namespace: default
+  labels:
+    app: neoncat-hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neoncat-hello
+  template:
+    metadata:
+      labels:
+        app: neoncat-hello
+    spec:
+      containers:
+      - name: neoncat-hello
+        image: registry.digitalocean.com/nucleus-tech-registry/neoncat-hello:latest
+        ports:
+        - containerPort: 8000
+          name: http
