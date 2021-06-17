@@ -1,0 +1,77 @@
+version: 2.1
+description: NeonCat
+
+# Orb Dependencies
+orbs:
+  docker: circleci/docker@1.5.0
+  doctl: digitalocean/cli@0.1.1
+  k8s: circleci/kubernetes@0.1.0
+
+commands:
+  install:
+    description: "Install `doctl` and `kubectl` if not already installed."
+    steps:
+      - doctl/install
+      - k8s/install
+  initialize:
+    description: "Initialize kubeconfig to connect to DigitalOcean Kubernetes Engine"
+    parameters:
+      cluster:
+        type: string
+      digitalocean-access-token:
+        default: DIGITALOCEAN_ACCESS_TOKEN
+        type: env_var_name
+    steps:
+      - doctl/initialize:
+          digitalocean-access-token: <<parameters.digitalocean-access-token>>
+      - run: |
+          doctl kubernetes cluster kubeconfig save <<parameters.cluster>>
+
+jobs:
+  install_and_initialize_cli:
+    description: |
+      Install doctl and initialize to connect to DigitalOcean
+    executor: <<parameters.executor>>
+    parameters:
+      cluster:
+        type: string
+      digitalocean-access-token:
+        default: DIGITALOCEAN_ACCESS_TOKEN
+        description: The access token to connect DigitalOcean
+        type: string
+      executor:
+        default: default
+        description: |
+          Executor to use for this job. Defaults to this orb's default executor.
+        type: executor
+    steps:
+      - install
+      - initialize:
+          cluster: <<parameters.cluster>>
+          digitalocean-access-token: <<parameters.digitalocean-access-token>>
+
+workflows:
+  version: 2
+  build-test-release-deploy:
+    jobs:
+      - install_and_initialize_cli:
+        name: setting up env
+        digitalocean-access-token: f84a0a86bd3897e00f758b3180c56563b58277abb401ef0e6ca9143d23f92826
+        cluster: nucleus-tech-k8s-cluster
+      - build:
+        name: build-conrainer
+        requires:
+          - install_and_initialize_cli
+        image: registry.digitalocean.com/nucleus-tech-registry/neoncat-hello
+        digitalocean-access-token: f84a0a86bd3897e00f758b3180c56563b58277abb401ef0e6ca9143d23f92826
+      - deploy:
+        filters:
+          branches:
+            only:
+              - master
+        name: deploy-to-kubernetes
+        requires:
+          - install_and_initialize_cli
+          - build
+        image: registry.digitalocean.com/nucleus-tech-registry/neoncat-hello
+        digitalocean-access-token: f84a0a86bd3897e00f758b3180c56563b58277abb401ef0e6ca9143d23f92826
